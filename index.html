@@ -136,22 +136,6 @@
             border: none;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
-        
-        .toggle-ui-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 2000;
-            background: white;
-            border: 2px solid rgba(0,0,0,0.1);
-            padding: 8px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            pointer-events: auto;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .toggle-ui-btn:hover { background: #f8fafc; }
     </style>
 </head>
 <body>
@@ -178,6 +162,22 @@
             <input type="text" id="t2-coords" placeholder="Lat, Long" oninput="updateMap()">
         </div>
 
+        <div class="card">
+            <h3>Team 3</h3>
+            <label>Name</label>
+            <input type="text" id="t3-name" value="Team 3" oninput="updateMap()">
+            <label>Coordinates</label>
+            <input type="text" id="t3-coords" placeholder="Lat, Long" oninput="updateMap()">
+        </div>
+
+        <div class="card">
+            <h3>Team 4</h3>
+            <label>Name</label>
+            <input type="text" id="t4-name" value="Team 4" oninput="updateMap()">
+            <label>Coordinates</label>
+            <input type="text" id="t4-coords" placeholder="Lat, Long" oninput="updateMap()">
+        </div>
+
         <div class="card target-card">
             <h3>Target</h3>
             <label>True Coordinates</label>
@@ -198,6 +198,9 @@
 <script>
     let map;
     let mapLayers = [];
+    
+    // Assigning standard colors for the 4 teams
+    const teamColors = ['#3b82f6', '#ef4444', '#a855f7', '#f97316'];
 
     function initMap() {
         // Position map zoom controls on the right so they don't hide under the left sidebar
@@ -210,7 +213,6 @@
         }).addTo(map);
     }
 
-
     function parseCoords(str) {
         if (!str) return null;
         const parts = str.split(',');
@@ -222,8 +224,7 @@
     }
 
     function haversine(lat1, lon1, lat2, lon2) {
-        // Changed from 6371 (Earth radius in km) to 3958.8 (Earth radius in miles)
-        const R = 3958.8; 
+        const R = 3958.8; // Earth radius in miles
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
         const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -233,12 +234,27 @@
         return R * c;
     }
 
+    // Helper function to grab current valid teams from inputs
+    function getTeams() {
+        let teams = [];
+        for (let i = 1; i <= 4; i++) {
+            let coords = parseCoords(document.getElementById(`t${i}-coords`).value);
+            if (coords) {
+                teams.push({
+                    name: document.getElementById(`t${i}-name`).value || `Team ${i}`,
+                    coords: coords,
+                    color: teamColors[i-1]
+                });
+            }
+        }
+        return teams;
+    }
+
     function updateMap(showTarget = false) {
         mapLayers.forEach(layer => map.removeLayer(layer));
         mapLayers = [];
 
-        const t1Coords = parseCoords(document.getElementById('t1-coords').value);
-        const t2Coords = parseCoords(document.getElementById('t2-coords').value);
+        const teams = getTeams();
         const targetCoords = showTarget ? parseCoords(document.getElementById('target-coords').value) : null;
 
         let boundsPoints = [];
@@ -262,28 +278,22 @@
             boundsPoints.push([coords.lat, coords.lon]);
         }
 
-        drawPin(t1Coords, document.getElementById('t1-name').value || "Team 1", '#3b82f6', false);
-        drawPin(t2Coords, document.getElementById('t2-name').value || "Team 2", '#ef4444', false);
+        // Draw team pins dynamically
+        teams.forEach(team => drawPin(team.coords, team.name, team.color, false));
         
         if (showTarget && targetCoords) {
             drawPin(targetCoords, "Target", '#22c55e', true);
 
-            if (t1Coords) {
-                let line1 = L.polyline([[t1Coords.lat, t1Coords.lon], [targetCoords.lat, targetCoords.lon]], {
+            // Draw line from each team to the target
+            teams.forEach(team => {
+                let line = L.polyline([[team.coords.lat, team.coords.lon], [targetCoords.lat, targetCoords.lon]], {
                     color: '#475569', weight: 2, dashArray: '5, 8'
                 }).addTo(map);
-                mapLayers.push(line1);
-            }
-            if (t2Coords) {
-                let line2 = L.polyline([[t2Coords.lat, t2Coords.lon], [targetCoords.lat, targetCoords.lon]], {
-                    color: '#475569', weight: 2, dashArray: '5, 8'
-                }).addTo(map);
-                mapLayers.push(line2);
-            }
+                mapLayers.push(line);
+            });
         }
 
         // Auto-zoom to fit pins. 
-        // We add massive padding to the Left (380px) so pins don't hide under our new sidebar!
         if (boundsPoints.length > 0) {
             map.fitBounds(boundsPoints, { 
                 paddingTopLeft: [380, 50], 
@@ -294,8 +304,6 @@
     }
 
     function calculateAndReveal() {
-        const t1Coords = parseCoords(document.getElementById('t1-coords').value);
-        const t2Coords = parseCoords(document.getElementById('t2-coords').value);
         const targetCoords = parseCoords(document.getElementById('target-coords').value);
 
         if (!targetCoords) {
@@ -305,29 +313,43 @@
 
         updateMap(true);
 
-        const t1Name = document.getElementById('t1-name').value || "Team 1";
-        const t2Name = document.getElementById('t2-name').value || "Team 2";
-        let resultsHTML = "";
-        let dist1 = Infinity, dist2 = Infinity;
-
-        if (t1Coords) dist1 = haversine(t1Coords.lat, t1Coords.lon, targetCoords.lat, targetCoords.lon);
-        if (t2Coords) dist2 = haversine(t2Coords.lat, t2Coords.lon, targetCoords.lat, targetCoords.lon);
-
+        const teams = getTeams();
         const winnerBanner = document.getElementById('winner-banner');
-        
-        if (!t1Coords && !t2Coords) {
+
+        if (teams.length === 0) {
             winnerBanner.innerHTML = "No teams guessed!";
-        } else if (dist1 < dist2) {
-            winnerBanner.innerHTML = `🏆 ${t1Name} wins!`;
-        } else if (dist2 < dist1) {
-            winnerBanner.innerHTML = `🏆 ${t2Name} wins!`;
-        } else {
-            winnerBanner.innerHTML = `🤝 Exact tie!`;
+            document.getElementById('results-section').style.display = 'block';
+            document.getElementById('distance-stats').innerHTML = "";
+            return;
         }
 
-        // Changed 'km' to 'miles' below
-        if (t1Coords) resultsHTML += `<strong>${t1Name}:</strong><br>${dist1.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} miles<br><br>`;
-        if (t2Coords) resultsHTML += `<strong>${t2Name}:</strong><br>${dist2.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} miles`;
+        // Calculate all distances
+        let minDistance = Infinity;
+        teams.forEach(team => {
+            team.distance = haversine(team.coords.lat, team.coords.lon, targetCoords.lat, targetCoords.lon);
+            if (team.distance < minDistance) {
+                minDistance = team.distance;
+            }
+        });
+
+        // Determine winners (Handles ties if multiple teams are exactly the same distance)
+        const winners = teams.filter(team => team.distance === minDistance);
+
+        if (winners.length === 1) {
+            winnerBanner.innerHTML = `🏆 ${winners[0].name} wins!`;
+        } else {
+            const winnerNames = winners.map(w => w.name).join(" & ");
+            winnerBanner.innerHTML = `🤝 Tie between ${winnerNames}!`;
+        }
+
+        // Display results sorted by closest to furthest
+        teams.sort((a, b) => a.distance - b.distance);
+        
+        let resultsHTML = "";
+        teams.forEach((team, index) => {
+            resultsHTML += `<strong>${team.name}:</strong><br>${team.distance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} miles`;
+            if (index < teams.length - 1) resultsHTML += `<br><br>`;
+        });
         
         document.getElementById('distance-stats').innerHTML = resultsHTML;
         document.getElementById('results-section').style.display = 'block';
