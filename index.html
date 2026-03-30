@@ -222,7 +222,8 @@
     }
 
     function haversine(lat1, lon1, lat2, lon2) {
-        const R = 6371; 
+        // Changed from 6371 (Earth radius in km) to 3958.8 (Earth radius in miles)
+        const R = 3958.8; 
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
         const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -324,8 +325,9 @@
             winnerBanner.innerHTML = `🤝 Exact tie!`;
         }
 
-        if (t1Coords) resultsHTML += `<strong>${t1Name}:</strong><br>${dist1.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} km<br><br>`;
-        if (t2Coords) resultsHTML += `<strong>${t2Name}:</strong><br>${dist2.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} km`;
+        // Changed 'km' to 'miles' below
+        if (t1Coords) resultsHTML += `<strong>${t1Name}:</strong><br>${dist1.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} miles<br><br>`;
+        if (t2Coords) resultsHTML += `<strong>${t2Name}:</strong><br>${dist2.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} miles`;
         
         document.getElementById('distance-stats').innerHTML = resultsHTML;
         document.getElementById('results-section').style.display = 'block';
