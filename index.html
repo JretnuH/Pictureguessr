@@ -3,155 +3,193 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coordinate Guesser Referee</title>
+    <title>Coordinate Guesser</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     
     <style>
         :root {
             --primary: #2563eb;
-            --bg: #f8fafc;
-            --surface: #ffffff;
             --border: #e2e8f0;
             --text: #0f172a;
         }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
+        
+        body, html {
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        /* The Map covers the entire background */
+        #map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        /* UI Layer pushed to the left side like a sidebar */
+        .ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            bottom: 20px;
+            z-index: 1000; 
+            pointer-events: none; 
             display: flex;
             flex-direction: column;
-            align-items: center;
         }
+
+        /* The actual control box - much narrower and compact */
         .container {
-            background: var(--surface);
-            padding: 30px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            max-width: 900px;
-            width: 100%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            width: 320px; /* Narrow sidebar width */
+            max-height: 100%;
+            overflow-y: auto;
+            pointer-events: auto; 
         }
-        h1 { text-align: center; margin-top: 0; margin-bottom: 20px;}
+
+        h2 { text-align: center; margin-top: 0; margin-bottom: 15px; font-size: 1.4em;}
         
-        #map-container {
-            height: 450px;
-            width: 100%;
-            border-radius: 8px;
-            border: 2px solid var(--border);
-            margin-bottom: 30px;
-            z-index: 1; /* Keeps map rendering below dropdowns/tooltips */
-        }
-        
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
-        }
         .card {
             border: 1px solid var(--border);
-            padding: 15px;
+            padding: 12px;
             border-radius: 8px;
-            background: #fdfdfd;
+            background: rgba(255, 255, 255, 0.7);
+            margin-bottom: 15px;
         }
+        
         .card.target-card {
-            background: #f0fdf4;
+            background: rgba(240, 253, 244, 0.9);
             border-color: #bbf7d0;
         }
-        .card h3 { margin-top: 0; border-bottom: 2px solid var(--border); padding-bottom: 5px; }
+        
+        .card h3 { margin: 0 0 10px 0; font-size: 1.1em; border-bottom: 2px solid var(--border); padding-bottom: 5px; }
         .target-card h3 { border-bottom-color: #bbf7d0; color: #166534;}
         
-        label { display: block; font-weight: bold; margin-bottom: 4px; font-size: 0.9em; }
+        label { display: block; font-weight: bold; margin-bottom: 4px; font-size: 0.85em; color: #475569;}
+        
         input[type="text"] {
             width: 100%;
-            padding: 10px;
-            margin-bottom: 12px;
+            padding: 8px;
+            margin-bottom: 10px;
             border: 1px solid var(--border);
             border-radius: 4px;
             box-sizing: border-box;
-            font-size: 1em;
+            font-size: 0.95em;
+            background: #ffffff;
         }
-        input::placeholder { color: #94a3b8; }
         
         button {
             width: 100%;
             background-color: var(--primary);
             color: white;
             border: none;
-            padding: 15px;
-            font-size: 1.1em;
+            padding: 12px;
+            font-size: 1.05em;
             font-weight: bold;
             border-radius: 8px;
             cursor: pointer;
             transition: background 0.2s;
-            margin-top: 10px;
+            box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
         }
         button:hover { background-color: #1d4ed8; }
         
         #results-section {
-            margin-top: 20px;
+            margin-top: 15px;
             display: none;
             text-align: center;
         }
+        
         .winner-banner {
             background: #dcfce7;
             color: #166534;
-            padding: 15px;
+            padding: 12px;
             border-radius: 8px;
-            font-size: 1.3em;
+            font-size: 1.1em;
             font-weight: bold;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
-        .distance-stats { font-size: 1.1em; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border);}
         
-        /* Fix for Leaflet tooltips styling */
+        .distance-stats { 
+            font-size: 0.95em; 
+            background: rgba(248, 250, 252, 0.9); 
+            padding: 12px; 
+            border-radius: 8px; 
+            border: 1px solid var(--border);
+            text-align: left;
+        }
+
         .leaflet-tooltip {
             font-weight: bold;
-            font-size: 14px;
+            font-size: 13px;
             border: none;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
+        
+        .toggle-ui-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+            background: white;
+            border: 2px solid rgba(0,0,0,0.1);
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            pointer-events: auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .toggle-ui-btn:hover { background: #f8fafc; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>📍 Coordinate Guesser</h1>
-    
-    <div id="map-container"></div>
+<div id="map-container"></div>
 
-    <div class="grid">
+<div class="ui-layer">
+    <div class="container" id="main-container">
+        <h2>Input Guesses</h2>
+        
         <div class="card">
             <h3>Team 1</h3>
-            <label>Team Name</label>
+            <label>Name</label>
             <input type="text" id="t1-name" value="Team 1" oninput="updateMap()">
-            <label>Coordinates (Lat, Long)</label>
-            <input type="text" id="t1-coords" placeholder="e.g. 48.8566, 2.3522" oninput="updateMap()">
+            <label>Coordinates</label>
+            <input type="text" id="t1-coords" placeholder="Lat, Long" oninput="updateMap()">
         </div>
 
         <div class="card">
             <h3>Team 2</h3>
-            <label>Team Name</label>
+            <label>Name</label>
             <input type="text" id="t2-name" value="Team 2" oninput="updateMap()">
-            <label>Coordinates (Lat, Long)</label>
-            <input type="text" id="t2-coords" placeholder="e.g. 40.7128, -74.0060" oninput="updateMap()">
+            <label>Coordinates</label>
+            <input type="text" id="t2-coords" placeholder="Lat, Long" oninput="updateMap()">
         </div>
-    </div>
 
-    <div class="card target-card">
-        <h3>Target Location</h3>
-        <label>True Coordinates (Lat, Long)</label>
-        <input type="text" id="target-coords" placeholder="Paste actual location here...">
-    </div>
+        <div class="card target-card">
+            <h3>Target</h3>
+            <label>True Coordinates</label>
+            <input type="text" id="target-coords" placeholder="Lat, Long">
+        </div>
 
-    <button onclick="calculateAndReveal()">Reveal Target & Winner</button>
+        <button onclick="calculateAndReveal()">Reveal Winner</button>
 
-    <div id="results-section">
-        <div id="winner-banner" class="winner-banner"></div>
-        <div class="distance-stats" id="distance-stats"></div>
+        <div id="results-section">
+            <div id="winner-banner" class="winner-banner"></div>
+            <div class="distance-stats" id="distance-stats"></div>
+        </div>
     </div>
 </div>
 
@@ -159,20 +197,20 @@
 
 <script>
     let map;
-    let mapLayers = []; // Keep track of pins and lines to clear them on update
+    let mapLayers = [];
 
-    // Initialize the real world map
     function initMap() {
-        map = L.map('map-container').setView([20, 0], 2); // Start with a zoomed out world view
-        
-        // Add OpenStreetMap tiles (free and open source)
+        // Position map zoom controls on the right so they don't hide under the left sidebar
+        map = L.map('map-container', { zoomControl: false }).setView([20, 0], 2); 
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
     }
 
-    // Utility to parse "lat, long" string
+
     function parseCoords(str) {
         if (!str) return null;
         const parts = str.split(',');
@@ -183,9 +221,8 @@
         return { lat: lat, lon: lon };
     }
 
-    // Haversine formula for distance
     function haversine(lat1, lon1, lat2, lon2) {
-        const R = 6371; // Earth radius in km
+        const R = 6371; 
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
         const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -195,9 +232,7 @@
         return R * c;
     }
 
-    // Draw markers and lines on the actual map
     function updateMap(showTarget = false) {
-        // Clear old markers and lines
         mapLayers.forEach(layer => map.removeLayer(layer));
         mapLayers = [];
 
@@ -205,12 +240,11 @@
         const t2Coords = parseCoords(document.getElementById('t2-coords').value);
         const targetCoords = showTarget ? parseCoords(document.getElementById('target-coords').value) : null;
 
-        let boundsPoints = []; // Used to auto-zoom the map to fit all pins
+        let boundsPoints = [];
 
-        // Helper to draw a circle marker
         function drawPin(coords, name, color, isTarget) {
             if (!coords) return;
-            const radius = isTarget ? 12 : 8;
+            const radius = isTarget ? 10 : 7;
             
             let marker = L.circleMarker([coords.lat, coords.lon], {
                 radius: radius,
@@ -233,7 +267,6 @@
         if (showTarget && targetCoords) {
             drawPin(targetCoords, "Target", '#22c55e', true);
 
-            // Draw connecting dotted lines
             if (t1Coords) {
                 let line1 = L.polyline([[t1Coords.lat, t1Coords.lon], [targetCoords.lat, targetCoords.lon]], {
                     color: '#475569', weight: 2, dashArray: '5, 8'
@@ -248,9 +281,14 @@
             }
         }
 
-        // Auto-zoom the map to show all placed pins perfectly
+        // Auto-zoom to fit pins. 
+        // We add massive padding to the Left (380px) so pins don't hide under our new sidebar!
         if (boundsPoints.length > 0) {
-            map.fitBounds(boundsPoints, { padding: [50, 50], maxZoom: 14 });
+            map.fitBounds(boundsPoints, { 
+                paddingTopLeft: [380, 50], 
+                paddingBottomRight: [50, 50],
+                maxZoom: 14 
+            });
         }
     }
 
@@ -264,10 +302,8 @@
             return;
         }
 
-        // Update map with lines and target
         updateMap(true);
 
-        // Calculate and show text results
         const t1Name = document.getElementById('t1-name').value || "Team 1";
         const t2Name = document.getElementById('t2-name').value || "Team 2";
         let resultsHTML = "";
@@ -285,17 +321,16 @@
         } else if (dist2 < dist1) {
             winnerBanner.innerHTML = `🏆 ${t2Name} wins!`;
         } else {
-            winnerBanner.innerHTML = `🤝 It's an exact tie!`;
+            winnerBanner.innerHTML = `🤝 Exact tie!`;
         }
 
-        if (t1Coords) resultsHTML += `<strong>${t1Name}:</strong> ${dist1.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} km away<br>`;
-        if (t2Coords) resultsHTML += `<strong>${t2Name}:</strong> ${dist2.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} km away`;
+        if (t1Coords) resultsHTML += `<strong>${t1Name}:</strong><br>${dist1.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} km<br><br>`;
+        if (t2Coords) resultsHTML += `<strong>${t2Name}:</strong><br>${dist2.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} km`;
         
         document.getElementById('distance-stats').innerHTML = resultsHTML;
         document.getElementById('results-section').style.display = 'block';
     }
 
-    // Load the map as soon as the window finishes loading
     window.onload = () => {
         initMap();
     };
